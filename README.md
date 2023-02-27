@@ -1,4 +1,4 @@
-# Spectre SSH
+# Spectre RabbitMQ
 
 [![Build](https://github.com/ionos-spectre/spectre-rabbitmq/actions/workflows/build.yml/badge.svg)](https://github.com/ionos-spectre/spectre-rabbitmq/actions/workflows/build.yml)
 [![Gem Version](https://badge.fury.io/rb/spectre-rabbitmq.svg)](https://badge.fury.io/rb/spectre-rabbitmq)
