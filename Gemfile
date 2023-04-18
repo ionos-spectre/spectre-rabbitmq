@@ -2,6 +2,8 @@ source "https://rubygems.org"
 
 gemspec
 
+gem "bunny"
+
 gem "rake"
 gem "rspec", :require => "spec"
 gem "rubocop"

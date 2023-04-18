@@ -1,0 +1,11 @@
+source 'https://rubygems.org'
+
+gem 'spectre-core', '>= 2.0.0'
+# gem 'spectre-mysql', '>= 1.0.0'
+# gem 'spectre-ssh', '>= 1.0.2'
+# gem 'spectre-ftp', '>= 1.0.0'
+# gem 'spectre-curl', '>= 1.0.0'
+# gem 'spectre-git', '>= 0.2.1'
+# gem 'spectre-reporter-junit', '>= 1.0.0'
+# gem 'spectre-reporter-vstest', '>= 1.0.1'
+# gem 'spectre-reporter-html', '>= 1.0.0'

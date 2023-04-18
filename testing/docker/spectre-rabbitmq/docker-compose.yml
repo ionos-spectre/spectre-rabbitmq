@@ -1,0 +1,18 @@
+version: '2'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.11.4-management
+    hostname: spectre-rabbitmq
+    container_name: spectre-rabbitmq
+    ports:
+      - 15671:15671
+      - 15672:15672
+      - 25672:25672
+      - 4369:4369
+      - 5671:5671
+      - 5672:5672
+    environment:
+      RABBITMQ_DEFAULT_USER: developer
+      RABBITMQ_DEFAULT_PASS: dev
+
