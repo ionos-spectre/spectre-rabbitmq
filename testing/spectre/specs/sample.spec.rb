@@ -1,6 +1,5 @@
 describe 'spectre/rabbitmq' do
   it 'does consume rabbitmq queues', tags: [:sample, :rabbitmq] do
-
     log 'connect to rabbitmq'
 
     rabbitmq 'sample' do
@@ -33,6 +32,5 @@ describe 'spectre/rabbitmq' do
         result.body.should_be 'some data'
       end
     end
-
   end
 end

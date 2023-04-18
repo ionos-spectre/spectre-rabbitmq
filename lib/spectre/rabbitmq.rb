@@ -61,10 +61,6 @@ module Spectre
     end
 
     class PublishActionParams < ActionParamsBase
-      def initialize config, logger
-        super config, logger
-      end
-
       def body data
         @config['body'] = data
       end
@@ -94,6 +90,7 @@ module Spectre
 
       def action name
         raise "invalid action '#{name}'" unless ['publish', 'subscribe'].include? name
+
         @config['action'] = name
       end
 
@@ -205,12 +202,12 @@ module Spectre
     class << self
       @@config = {}
 
-      def rabbitmq name, options = {}, &block
+      def rabbitmq name, &block
         if @@config.key? name
           config = @@config[name]
         else
           config = {
-            'host' => name
+            'host' => name,
           }
         end
 
