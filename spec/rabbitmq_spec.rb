@@ -35,7 +35,7 @@ RSpec.describe 'spectre/http' do
     allow(queue).to receive(:subscribe) { |&block| block.call(nil, { correlation_id: @correlation_id, reply_to: @reply_to }, 'some data') }
 
     allow(channel).to receive(:queue)
-      .with('hello_queue', durable: false, auto_delete: false)
+      .with('hello_queue', durable: false, auto_delete: false, exclusive: false)
       .and_return(queue)
 
     allow(conn).to receive(:create_channel).and_return(channel)

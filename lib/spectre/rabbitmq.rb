@@ -52,11 +52,12 @@ module Spectre
         @config['messages'] = 1
       end
 
-      def queue name, durable: false, auto_delete: false
+      def queue name, durable: false, auto_delete: false, exclusive: false
         @config['queue'] = {
           'name' => name,
           'durable' => durable,
           'auto_delete' => auto_delete,
+          'exclusive' => exclusive,
         }
       end
 
@@ -139,9 +140,10 @@ module Spectre
           params.config['queue']['name'],
           durable: params.config['queue']['durable'],
           auto_delete: params.config['queue']['auto_delete'],
+          exclusive: params.config['queue']['exclusive'],
         )
 
-        @logger.info("declare queue name=#{queue.name} durable=#{params.config['queue']['durable']} auto_delete=#{params.config['queue']['auto_delete']}")
+        @logger.info("declare queue name=#{queue.name} durable=#{params.config['queue']['durable']} auto_delete=#{params.config['queue']['auto_delete']} exclusive=#{params.config['queue']['exclusive']}")
 
         params.config['routing_keys'].each do |routing_key|
           queue.bind(exchange, routing_key: routing_key)
