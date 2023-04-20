@@ -72,6 +72,7 @@ RSpec.describe 'spectre/http' do
         exchange 'hello', type: 'topic', durable: true
         queue 'hello_queue'
         routing_keys 'sample_key', 'sample_key_2'
+        messages 3
         timeout 3
       end
 
@@ -85,9 +86,9 @@ RSpec.describe 'spectre/http' do
 
       await!
 
-      expect(result.body).to eq('some data')
-      expect(result.correlation_id).to eq(corr_id)
-      expect(result.reply_to).to eq(reply)
+      expect(messages.first.payload).to eq('some data')
+      expect(messages.first.correlation_id).to eq(corr_id)
+      expect(messages.first.reply_to).to eq(reply)
     end
   end
 end

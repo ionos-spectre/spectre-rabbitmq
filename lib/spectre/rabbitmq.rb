@@ -48,6 +48,8 @@ module Spectre
           'durable' => false,
           'auto_delete' => false,
         }
+
+        @config['messages'] = 1
       end
 
       def queue name, durable: false, auto_delete: false
@@ -60,6 +62,10 @@ module Spectre
 
       def timeout seconds
         @config['timeout'] = seconds
+      end
+
+      def messages count
+        @config['messages'] = count
       end
     end
 
@@ -80,7 +86,7 @@ module Spectre
     end
 
     class RabbitMQAction < Spectre::DslClass
-      attr_reader :conn, :action, :threads, :result
+      attr_reader :conn, :action, :threads, :messages
 
       def initialize config, logger
         @logger = logger
@@ -88,7 +94,7 @@ module Spectre
         @conn = nil
 
         @threads = []
-        @result = nil
+        @messages = []
 
         @config['ssl'] = false
       end
@@ -123,9 +129,11 @@ module Spectre
         params = ConsumeActionParams.new(@config, @logger)
         params.instance_eval(&block)
 
-        connect
+        connect()
 
         channel = @conn.create_channel
+
+        exchange = declare_exchange(channel, params)
 
         queue = channel.queue(
           params.config['queue']['name'],
@@ -137,39 +145,48 @@ module Spectre
 
         params.config['routing_keys'].each do |routing_key|
           queue.bind(exchange, routing_key: routing_key)
-
           @logger.info("bind exchange=#{exchange.name} queue=#{queue.name} routing_key=#{routing_key}")
         end
 
-        consume_thread = Thread.new do
-            @logger.info("get queue=#{queue.name}\ncorrelation_id: #{properties[:correlation_id]}\nreply_to: #{properties[:reply_to]}\n#{payload}")
+        consumer_thread = Thread.new do
+          message_queue = Queue.new
+
+          queue.subscribe do |_delivery_info, properties, payload|
+            message = OpenStruct.new
+            message.payload = payload
+            message.correlation_id = properties[:correlation_id]
+            message.reply_to = properties[:reply_to]
+            message.freeze
+
+            message_queue << message
+          end
+
+          while @messages.count < params.config['messages']
+            message = message_queue.pop
+            @logger.info("get queue=#{queue.name}\ncorrelation_id: #{message.correlation_id}\nreply_to: #{message.reply_to}\n#{message.payload}")
+            @messages << message
           end
         end
 
-        @threads << consume_thread
+        @threads << consumer_thread
 
         Thread.new do
           sleep(params.config['timeout'] || 10)
-          Thread.kill(consume_thread)
+          consumer_thread.exit
         end
-
-        @result = result
       end
 
       def publish &block
         params = PublishActionParams.new(@config, @logger)
         params.instance_eval(&block)
 
-        connect
+        connect()
 
         channel = @conn.create_channel
 
-        exchange = Bunny::Exchange.new(
-          channel,
-          params.config['exchange']['type'].to_s,
-          params.config['exchange']['name'],
-          durable: params.config['exchange']['durable']
-        )
+        exchange = declare_exchange(channel, params)
+
+        routing_key = params.config['routing_keys'].nil? ? nil : params.config['routing_keys'].first
 
         exchange.publish(
           params.config['payload'],
@@ -203,8 +220,19 @@ module Spectre
         @conn.start
       end
 
+      def declare_exchange(channel, params)
+        exchange = Bunny::Exchange.new(
+          channel,
+          params.config['exchange']['type'].to_s,
+          params.config['exchange']['name'],
+          durable: params.config['exchange']['durable'],
+          auto_delete: params.config['exchange']['auto_delete'],
+        )
+
         @logger.info("declare exchange name=#{exchange.name} type=#{exchange.type} durable=#{params.config['exchange']['durable']} auto_delete=#{params.config['exchange']['auto_delete']}")
 
+        exchange
+      end
     end
 
     class << self
