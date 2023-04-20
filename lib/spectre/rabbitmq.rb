@@ -1,5 +1,3 @@
-require 'net/ssh'
-require 'logger'
 require 'spectre'
 require 'spectre/logger'
 require 'ostruct'
