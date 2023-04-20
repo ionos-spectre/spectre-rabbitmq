@@ -22,7 +22,7 @@ describe 'spectre/rabbitmq' do
 
       publish do
         topic 'hello', durable: true
-        body 'some data'
+        payload 'some data'
         routing_key 'sample_key'
       end
 

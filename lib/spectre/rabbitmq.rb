@@ -64,8 +64,8 @@ module Spectre
     end
 
     class PublishActionParams < ActionParamsBase
-      def body data
-        @config['body'] = data
+      def payload data
+        @config['payload'] = data
       end
 
       def correlation_id id
@@ -75,6 +75,8 @@ module Spectre
       def reply_to receiver
         @config['reply_to'] = receiver
       end
+
+      alias :body :payload
     end
 
     class RabbitMQAction < Spectre::DslClass
@@ -170,8 +172,8 @@ module Spectre
         )
 
         exchange.publish(
-          params.config['body'],
-          routing_key: params.config['routing_keys'].nil? ? nil : params.config['routing_keys'].first,
+          params.config['payload'],
+          routing_key: routing_key,
           correlation_id: params.config['correlation_id'],
           reply_to: params.config['reply_to']
         )

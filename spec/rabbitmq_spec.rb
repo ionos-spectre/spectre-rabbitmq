@@ -78,7 +78,7 @@ RSpec.describe 'spectre/http' do
       publish do
         topic 'hello', durable: true
         routing_key 'sample_key'
-        body 'some data'
+        payload 'some data'
         correlation_id corr_id
         reply_to reply
       end
