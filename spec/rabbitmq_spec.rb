@@ -19,8 +19,12 @@ RSpec.describe 'spectre/http' do
       .with(channel, 'topic', 'hello', durable: true, auto_delete: false)
       .and_return(exchange)
 
+    allow(exchange).to receive(:name)
+    allow(exchange).to receive(:type)
     allow(exchange).to receive(:publish)
       .with('some data', correlation_id: @correlation_id, reply_to: 'reply_to_this', routing_key: 'sample_key')
+
+    allow(queue).to receive(:name)
 
     allow(queue).to receive(:bind)
       .with(exchange, routing_key: 'sample_key')

@@ -131,19 +131,16 @@ module Spectre
           auto_delete: params.config['queue']['auto_delete'],
         )
 
-        queue = channel.queue(params.config['queue']['name'], durable: params.config['queue']['durable'])
+        @logger.info("declare queue name=#{queue.name} durable=#{params.config['queue']['durable']} auto_delete=#{params.config['queue']['auto_delete']}")
 
         params.config['routing_keys'].each do |routing_key|
           queue.bind(exchange, routing_key: routing_key)
+
+          @logger.info("bind exchange=#{exchange.name} queue=#{queue.name} routing_key=#{routing_key}")
         end
 
-        result = OpenStruct.new
-
         consume_thread = Thread.new do
-          queue.subscribe(block: true) do |_delivery_info, properties, body|
-            result.body = body
-            result.correlation_id = properties[:correlation_id]
-            result.reply_to = properties[:reply_to]
+            @logger.info("get queue=#{queue.name}\ncorrelation_id: #{properties[:correlation_id]}\nreply_to: #{properties[:reply_to]}\n#{payload}")
           end
         end
 
@@ -178,6 +175,8 @@ module Spectre
           correlation_id: params.config['correlation_id'],
           reply_to: params.config['reply_to']
         )
+
+        @logger.info("publish exchange=#{params.config['exchange']['name']} routing_key=#{routing_key} payload=\"#{params.config['payload']}\"")
       end
 
       def await!
@@ -189,6 +188,8 @@ module Spectre
       def connect
         return unless @conn.nil?
 
+        @logger.info("connect #{@config['username']}:*****@#{@config['host']}#{@config['virtual_host']} ssl=#{@config['ssl']}")
+
         @conn = Bunny.new(
           host: @config['host'],
           ssl: @config['ssl'],
@@ -199,6 +200,9 @@ module Spectre
 
         @conn.start
       end
+
+        @logger.info("declare exchange name=#{exchange.name} type=#{exchange.type} durable=#{params.config['exchange']['durable']} auto_delete=#{params.config['exchange']['auto_delete']}")
+
     end
 
     class << self
