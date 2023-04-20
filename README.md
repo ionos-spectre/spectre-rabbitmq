@@ -57,14 +57,35 @@ rabbitmq 'sample' do
   # This call blocks at the end of the `rabbitmq` block
   # This way, you can publish messages afterwards to this queue and wait for it
   consume do
-    exchange 'hello', type: 'topic', durable: true
-    queue 'hello_queue'
+    exchange 'hello', type: 'topic', durable: true, auto_delete: false
+    # topic 'hello', durable: true
+
+    queue 'hello_queue', durable: true, auto_delete: true
     routing_keys 'sample_key', 'sample_key_2'
+    messages 5 # wait for 5 messages before canceling consumption
+    timeout 3  # time to wait in seconds before canceling the consumption
   end
 
-  publish do
-    topic 'hello', durable: true
-    body 'some data'
+  5.times do
+    publish do
+      topic 'hello', durable: true
+      payload 'some data'
+      routing_key 'sample_key'
+      correlation_id 'some_correlation_id_1234'
+      reply_to 'reply_to_this'
+    end
+  end
+
+  await!
+
+  expect '5 messages' do
+    messages.count.should_be 5
+  end
+
+  expect 'a specific message' do
+    messages.first.payload.should_be 'some data'
+    messages.first.correlation_id.should_not_be_empty
+    messages.first.reply_to.should_be 'reply_to_this'
   end
 end
 ```
