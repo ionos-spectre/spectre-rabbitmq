@@ -17,16 +17,17 @@ module Spectre
         @config['routing_keys'] = []
       end
 
-      def exchange name, type: 'topic', durable: false
+      def exchange name, type: 'topic', durable: false, auto_delete: false
         @config['exchange'] = {
           'name' => name,
           'durable' => durable,
           'type' => type,
+          'auto_delete' => auto_delete,
         }
       end
 
-      def topic name, durable: false
-        exchange(name, type: 'topic', durable: durable)
+      def topic name, durable: false, auto_delete: false
+        exchange(name, type: 'topic', durable: durable, auto_delete: auto_delete)
       end
 
       def routing_keys *names
@@ -42,16 +43,18 @@ module Spectre
       def initialize config, logger
         super config, logger
 
-        config['queue'] = {
+        @config['queue'] = {
           'name' => nil,
           'durable' => false,
+          'auto_delete' => false,
         }
       end
 
-      def queue name, durable: false
+      def queue name, durable: false, auto_delete: false
         @config['queue'] = {
           'name' => name,
           'durable' => durable,
+          'auto_delete' => auto_delete,
         }
       end
 
@@ -122,11 +125,10 @@ module Spectre
 
         channel = @conn.create_channel
 
-        exchange = Bunny::Exchange.new(
-          channel,
-          params.config['exchange']['type'].to_s,
-          params.config['exchange']['name'],
-          durable: params.config['exchange']['durable']
+        queue = channel.queue(
+          params.config['queue']['name'],
+          durable: params.config['queue']['durable'],
+          auto_delete: params.config['queue']['auto_delete'],
         )
 
         queue = channel.queue(params.config['queue']['name'], durable: params.config['queue']['durable'])

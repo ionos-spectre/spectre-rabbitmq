@@ -16,7 +16,7 @@ RSpec.describe 'spectre/http' do
     allow(conn).to receive(:close)
 
     allow(Bunny::Exchange).to receive(:new)
-      .with(channel, 'topic', 'hello', durable: true)
+      .with(channel, 'topic', 'hello', durable: true, auto_delete: false)
       .and_return(exchange)
 
     allow(exchange).to receive(:publish)
@@ -32,7 +32,7 @@ RSpec.describe 'spectre/http' do
       .with(block: true)
 
     allow(channel).to receive(:queue)
-      .with('hello_queue', durable: false)
+      .with('hello_queue', durable: false, auto_delete: false)
       .and_return(queue)
 
     allow(conn).to receive(:create_channel).and_return(channel)
