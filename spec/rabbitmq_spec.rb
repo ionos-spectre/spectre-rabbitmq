@@ -41,13 +41,14 @@ RSpec.describe 'spectre/http' do
     allow(conn).to receive(:create_channel).and_return(channel)
 
     allow(Bunny).to receive(:new)
-      .with(host: 'localhost', ssl: false, username: 'developer', password: 'dev', virtual_host: '/')
+      .with(host: 'localhost', port: 1234, ssl: false, username: 'developer', password: 'dev', virtual_host: '/')
       .and_return(conn)
 
     Spectre.configure({
       'rabbitmq' => {
         'sample' => {
           'host' => 'localhost',
+          'port' => 1234,
           'username' => 'developer',
           'password' => 'dev',
           'virtual_host' => '/',

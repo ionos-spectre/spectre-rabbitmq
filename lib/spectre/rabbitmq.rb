@@ -96,6 +96,7 @@ module Spectre
         @messages = []
 
         @config['ssl'] = false
+        @config['port'] = @config['port'] || 5672
       end
 
       def action name
@@ -106,6 +107,10 @@ module Spectre
 
       def host hostname
         @config['host'] = hostname
+      end
+
+      def port portnum
+        @config['port'] = portnum
       end
 
       def use_ssl!
@@ -211,6 +216,7 @@ module Spectre
 
         @conn = Bunny.new(
           host: @config['host'],
+          port: @config['port'],
           ssl: @config['ssl'],
           username: @config['username'],
           password: @config['password'],
