@@ -6,7 +6,7 @@ require 'bunny'
 
 module Spectre
   module RabbitMQ
-    class ActionParamsBase
+    class ActionParamsBase < Spectre::DslClass
       attr_reader :config
 
       def initialize config, logger
