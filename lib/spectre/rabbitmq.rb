@@ -35,6 +35,10 @@ module Spectre
       def routing_key name
         @config['routing_keys'] << name
       end
+
+      def no_log!
+        @config['no_log'] = true
+      end
     end
 
     class ConsumeActionParams < ActionParamsBase
@@ -168,7 +172,14 @@ module Spectre
 
           while @messages.count < params.config['messages']
             message = message_queue.pop
-            @logger.info("get queue=#{queue.name}\ncorrelation_id: #{message.correlation_id}\nreply_to: #{message.reply_to}\n#{message.payload}")
+
+            payload_message = message.payload
+
+            if params.config['no_log'] == true
+              payload_message = '[...]'
+            end
+
+            @logger.info("get queue=#{queue.name}\ncorrelation_id: #{message.correlation_id}\nreply_to: #{message.reply_to}\n#{payload_message}")
             @messages << message
           end
         end
@@ -200,7 +211,13 @@ module Spectre
           reply_to: params.config['reply_to']
         )
 
-        @logger.info("publish exchange=#{params.config['exchange']['name']} routing_key=#{routing_key} payload=\"#{params.config['payload']}\"")
+        payload_message = params.config['payload']
+
+        if params.config['no_log'] == true
+          payload_message = '[...]'
+        end
+
+        @logger.info("publish exchange=#{params.config['exchange']['name']} routing_key=#{routing_key} payload=\"#{payload_message}\"")
       end
 
       def await!
