@@ -212,7 +212,10 @@ module Spectre
       def connect
         return unless @conn.nil?
 
-        @logger.info("connect #{@config['username']}:*****@#{@config['host']}#{@config['virtual_host']} ssl=#{@config['ssl']}")
+        vhost = @config['virtual_host']
+        vhost = '/' + vhost unless vhost.start_with? '/'
+
+        @logger.info("connect #{@config['username']}:*****@#{@config['host']}#{vhost} ssl=#{@config['ssl']}")
 
         @conn = Bunny.new(
           host: @config['host'],
