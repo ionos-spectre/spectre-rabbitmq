@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.name          = 'spectre-rabbitmq'
-  spec.version       = '1.0.2'
+  spec.version       = '1.0.3'
   spec.authors       = ['Christian Neubauer']
   spec.email         = ['christian.neubauer@ionos.com']
 
@@ -18,6 +18,6 @@ Gem::Specification.new do |spec|
 
   spec.require_paths = ['lib']
 
-  spec.add_runtime_dependency 'spectre-core', '>= 1.14.0'
+  spec.add_runtime_dependency 'spectre-core', '>= 1.14.3'
   spec.add_runtime_dependency 'bunny', '~> 2.20.3'
 end
