@@ -1,5 +1,5 @@
 require 'spectre'
-require 'spectre/logger'
+require 'spectre/logging'
 require 'ostruct'
 require 'bunny'
 
