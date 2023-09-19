@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.summary       = 'RabbitMQ module for spectre'
   spec.description   = 'Adds RabbitMQ functionality to the spectre framework'
   spec.homepage      = 'https://github.com/ionos-spectre/spectre-rabbitmq'
-  spec.license       = 'MIT'
+  spec.license       = 'GPL-3.0-or-later'
   spec.required_ruby_version = Gem::Requirement.new('>= 3.0.0')
 
   spec.metadata['homepage_uri'] = spec.homepage
