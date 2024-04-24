@@ -1,8 +1,19 @@
-require 'bunny'
+module Spectre
+  CONFIG = {
+    'rabbitmq' => {
+      'sample' => {
+        'host' => 'localhost',
+        'username' => 'developer',
+        'password' => 'dev',
+        'virtual_host' => '/',
+      },
+    },
+  }
+end
 
 require_relative '../lib/spectre/rabbitmq'
 
-RSpec.describe 'spectre/http' do
+RSpec.describe 'spectre/rabbitmq' do
   before do
     conn = double('Connection')
     channel = double('Channel')
@@ -44,22 +55,12 @@ RSpec.describe 'spectre/http' do
     allow(Bunny).to receive(:new)
       .with(host: 'localhost', ssl: false, username: 'developer', password: 'dev', virtual_host: '/')
       .and_return(conn)
-
-    Spectre.configure({
-      'rabbitmq' => {
-        'sample' => {
-          'host' => 'localhost',
-          'username' => 'developer',
-          'password' => 'dev',
-          'virtual_host' => '/',
-        },
-      },
-    })
   end
 
   it 'publish and consume a rabbitmq message' do
     corr_id = @correlation_id
     reply = @reply_to
+    received_messages = []
 
     Spectre::RabbitMQ.rabbitmq 'sample' do
       # host 'localhost'
@@ -86,9 +87,11 @@ RSpec.describe 'spectre/http' do
 
       await!
 
-      expect(messages.first.payload).to eq('some data')
-      expect(messages.first.correlation_id).to eq(corr_id)
-      expect(messages.first.reply_to).to eq(reply)
+      received_messages = messages
     end
+
+    expect(received_messages.first.payload).to eq('some data')
+    expect(received_messages.first.correlation_id).to eq(corr_id)
+    expect(received_messages.first.reply_to).to eq(reply)
   end
 end

@@ -1,7 +1,4 @@
-require 'net/ssh'
 require 'logger'
-require 'spectre'
-require 'spectre/logger'
 require 'ostruct'
 require 'bunny'
 
@@ -13,7 +10,7 @@ module Spectre
 
       def initialize config, logger
         @logger = logger
-        @config = config.deep_clone
+        @config = Marshal.load(Marshal.dump(config))
         @config['routing_keys'] = []
       end
 
@@ -85,7 +82,7 @@ module Spectre
       alias :body :payload
     end
 
-    class RabbitMQAction < Spectre::DslClass
+    class RabbitMQAction
       attr_reader :conn, :action, :threads, :messages
 
       def initialize config, logger
@@ -151,7 +148,7 @@ module Spectre
         consumer_thread = Thread.new do
           message_queue = Queue.new
 
-          queue.subscribe do |_delivery_info, properties, payload|
+          queue.subscribe(block: true) do |_delivery_info, properties, payload|
             message = OpenStruct.new
             message.payload = payload
             message.correlation_id = properties[:correlation_id]
@@ -236,7 +233,8 @@ module Spectre
     end
 
     class << self
-      @@config = {}
+      @@config = defined?(Spectre::CONFIG) ? Spectre::CONFIG['rabbitmq'] : {}
+      @@logger = defined?(Spectre.logger) ? Spectre.logger : Logger.new(STDOUT)
 
       def rabbitmq name, &block
         if @@config.key? name
@@ -248,7 +246,7 @@ module Spectre
         end
 
         action = RabbitMQAction.new(config, @@logger)
-        action._evaluate(&block) if block_given?
+        action.instance_eval(&block) if block_given?
 
         # Wait for all consumer threads to be finished
         action.threads.each { |x| x.join }
@@ -256,17 +254,5 @@ module Spectre
         action.conn.close
       end
     end
-
-    Spectre.register do |config|
-      @@logger = Spectre::Logging::ModuleLogger.new(config, 'spectre/rabbitmq')
-
-      if config.key? 'rabbitmq'
-        config['rabbitmq'].each do |name, cfg|
-          @@config[name] = cfg
-        end
-      end
-    end
-
-    Spectre.delegate :rabbitmq, to: self
   end
 end
