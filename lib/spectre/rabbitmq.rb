@@ -233,8 +233,11 @@ module Spectre
     end
 
     class << self
-      @@config = defined?(Spectre::CONFIG) ? Spectre::CONFIG['rabbitmq'] : {}
-      @@logger = defined?(Spectre.logger) ? Spectre.logger : Logger.new(STDOUT)
+      @@config = defined?(Spectre::CONFIG) ? Spectre::CONFIG['rabbitmq'] || {} : {}
+
+      def logger
+        @@logger ||= defined?(Spectre.logger) ? Spectre.logger : Logger.new(STDOUT)
+      end
 
       def rabbitmq name, &block
         if @@config.key? name
@@ -245,7 +248,7 @@ module Spectre
           }
         end
 
-        action = RabbitMQAction.new(config, @@logger)
+        action = RabbitMQAction.new(config, logger)
         action.instance_eval(&block) if block_given?
 
         # Wait for all consumer threads to be finished
