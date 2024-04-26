@@ -43,7 +43,9 @@ RSpec.describe 'spectre/rabbitmq' do
     allow(queue).to receive(:bind)
       .with(exchange, routing_key: 'sample_key_2')
 
-    allow(queue).to receive(:subscribe) { |&block| block.call(nil, { correlation_id: @correlation_id, reply_to: @reply_to }, 'some data') }
+    allow(queue).to receive(:subscribe) { |&block|
+                      block.call(nil, { correlation_id: @correlation_id, reply_to: @reply_to }, 'some data')
+                    }
       .with(block: true)
 
     allow(channel).to receive(:queue)

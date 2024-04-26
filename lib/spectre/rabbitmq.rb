@@ -2,7 +2,6 @@ require 'logger'
 require 'ostruct'
 require 'bunny'
 
-
 module Spectre
   module RabbitMQ
     class ActionParamsBase
@@ -24,7 +23,7 @@ module Spectre
       end
 
       def topic name, durable: false, auto_delete: false
-        exchange(name, type: 'topic', durable: durable, auto_delete: auto_delete)
+        exchange(name, type: 'topic', durable:, auto_delete:)
       end
 
       def routing_keys *names
@@ -38,7 +37,7 @@ module Spectre
 
     class ConsumeActionParams < ActionParamsBase
       def initialize config, logger
-        super config, logger
+        super(config, logger)
 
         @config['queue'] = {
           'name' => nil,
@@ -79,11 +78,11 @@ module Spectre
         @config['reply_to'] = receiver
       end
 
-      alias :body :payload
+      alias body payload
     end
 
     class RabbitMQAction
-      attr_reader :conn, :action, :threads, :messages
+      attr_reader :conn, :threads, :messages
 
       def initialize config, logger
         @logger = logger
@@ -122,11 +121,11 @@ module Spectre
         @config['virtual_host'] = vhost
       end
 
-      def consume &block
+      def consume(&)
         params = ConsumeActionParams.new(@config, @logger)
-        params.instance_eval(&block)
+        params.instance_eval(&)
 
-        connect()
+        connect
 
         channel = @conn.create_channel
 
@@ -135,13 +134,17 @@ module Spectre
         queue = channel.queue(
           params.config['queue']['name'],
           durable: params.config['queue']['durable'],
-          auto_delete: params.config['queue']['auto_delete'],
+          auto_delete: params.config['queue']['auto_delete']
         )
 
-        @logger.info("declare queue name=#{queue.name} durable=#{params.config['queue']['durable']} auto_delete=#{params.config['queue']['auto_delete']}")
+        @logger.info(
+          "declare queue name=#{queue.name} \
+          durable=#{params.config['queue']['durable']} \
+          auto_delete=#{params.config['queue']['auto_delete']}"
+        )
 
         params.config['routing_keys'].each do |routing_key|
-          queue.bind(exchange, routing_key: routing_key)
+          queue.bind(exchange, routing_key:)
           @logger.info("bind exchange=#{exchange.name} queue=#{queue.name} routing_key=#{routing_key}")
         end
 
@@ -160,7 +163,11 @@ module Spectre
 
           while @messages.count < params.config['messages']
             message = message_queue.pop
-            @logger.info("get queue=#{queue.name}\ncorrelation_id: #{message.correlation_id}\nreply_to: #{message.reply_to}\n#{message.payload}")
+            @logger.info(
+              "get queue=#{queue.name}\n\
+              correlation_id: #{message.correlation_id}\n\
+              reply_to: #{message.reply_to}\n#{message.payload}"
+            )
             @messages << message
           end
         end
@@ -173,30 +180,33 @@ module Spectre
         end
       end
 
-      def publish &block
+      def publish(&)
         params = PublishActionParams.new(@config, @logger)
-        params.instance_eval(&block)
+        params.instance_eval(&)
 
-        connect()
+        connect
 
         channel = @conn.create_channel
 
         exchange = declare_exchange(channel, params)
 
-        routing_key = params.config['routing_keys'].nil? ? nil : params.config['routing_keys'].first
+        routing_key = params.config['routing_keys']&.first
 
         exchange.publish(
           params.config['payload'],
-          routing_key: routing_key,
+          routing_key:,
           correlation_id: params.config['correlation_id'],
           reply_to: params.config['reply_to']
         )
 
-        @logger.info("publish exchange=#{params.config['exchange']['name']} routing_key=#{routing_key} payload=\"#{params.config['payload']}\"")
+        @logger.info(
+          "publish exchange=#{params.config['exchange']['name']} \
+          routing_key=#{routing_key} payload=\"#{params.config['payload']}\""
+        )
       end
 
       def await!
-        @threads.each { |x| x.join }
+        @threads.each(&:join)
       end
 
       private
@@ -204,7 +214,10 @@ module Spectre
       def connect
         return unless @conn.nil?
 
-        @logger.info("connect #{@config['username']}:*****@#{@config['host']}#{@config['virtual_host']} ssl=#{@config['ssl']}")
+        @logger.info(
+          "connect #{@config['username']}:*****@#{@config['host']}\
+          #{@config['virtual_host']} ssl=#{@config['ssl']}"
+        )
 
         @conn = Bunny.new(
           host: @config['host'],
@@ -223,10 +236,14 @@ module Spectre
           params.config['exchange']['type'].to_s,
           params.config['exchange']['name'],
           durable: params.config['exchange']['durable'],
-          auto_delete: params.config['exchange']['auto_delete'],
+          auto_delete: params.config['exchange']['auto_delete']
         )
 
-        @logger.info("declare exchange name=#{exchange.name} type=#{exchange.type} durable=#{params.config['exchange']['durable']} auto_delete=#{params.config['exchange']['auto_delete']}")
+        @logger.info(
+          "declare exchange name=#{exchange.name} type=#{exchange.type} \
+          durable=#{params.config['exchange']['durable']} \
+          auto_delete=#{params.config['exchange']['auto_delete']}"
+        )
 
         exchange
       end
@@ -236,23 +253,23 @@ module Spectre
       @@config = defined?(Spectre::CONFIG) ? Spectre::CONFIG['rabbitmq'] || {} : {}
 
       def logger
-        @@logger ||= defined?(Spectre.logger) ? Spectre.logger : Logger.new(STDOUT)
+        @@logger ||= defined?(Spectre.logger) ? Spectre.logger : Logger.new($stdout)
       end
 
-      def rabbitmq name, &block
-        if @@config.key? name
-          config = @@config[name]
-        else
-          config = {
-            'host' => name,
-          }
-        end
+      def rabbitmq(name, &)
+        config = if @@config.key? name
+                   @@config[name]
+                 else
+                   {
+                     'host' => name,
+                   }
+                 end
 
         action = RabbitMQAction.new(config, logger)
-        action.instance_eval(&block) if block_given?
+        action.instance_eval(&) if block_given?
 
         # Wait for all consumer threads to be finished
-        action.threads.each { |x| x.join }
+        action.threads.each(&:join)
 
         action.conn.close
       end
