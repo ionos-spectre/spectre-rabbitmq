@@ -63,7 +63,7 @@ RSpec.describe 'spectre/rabbitmq' do
     received_messages = []
 
     client = Spectre::RabbitMQ::Client.new(CONFIG, Logger.new(StringIO.new))
-    
+
     client.rabbitmq 'sample' do
       # host 'localhost'
       username 'developer'

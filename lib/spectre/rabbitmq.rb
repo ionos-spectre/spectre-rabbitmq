@@ -44,7 +44,7 @@ module Spectre
 
     class ConsumeActionParams < ActionParamsBase
       def initialize config, logger
-        super(config, logger)
+        super
 
         @config['queue'] = {
           'name' => nil,
@@ -176,11 +176,11 @@ module Spectre
             log_msg = "get queue=#{queue.name}\n\
                       correlation_id: #{message.correlation_id}\n\
                       reply_to: #{message.reply_to}"
-            
+
             log_msg = "\n#{message.payload}" if params.config['log_payload']
 
-            @logger.info(
-            )
+            @logger.info(log_msg)
+
             @messages << message
           end
         end
