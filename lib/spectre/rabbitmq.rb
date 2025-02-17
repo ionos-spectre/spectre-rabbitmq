@@ -4,6 +4,8 @@ require 'bunny'
 
 module Spectre
   module RabbitMQ
+    PROGNAME = 'spectre/rabbitmq'
+
     class ActionParamsBase
       include Spectre::Delegate if defined? Spectre::Delegate
 
@@ -55,11 +57,12 @@ module Spectre
         @config['messages'] = 1
       end
 
-      def queue name, durable: false, auto_delete: false
+      def queue name = '', exclusive: false, durable: false, auto_delete: false
         @config['queue'] = {
           'name' => name,
           'durable' => durable,
           'auto_delete' => auto_delete,
+          'exclusive' => exclusive,
         }
       end
 
@@ -143,45 +146,46 @@ module Spectre
         queue = channel.queue(
           params.config['queue']['name'],
           durable: params.config['queue']['durable'],
-          auto_delete: params.config['queue']['auto_delete']
+          auto_delete: params.config['queue']['auto_delete'],
+          exclusive: params.config['queue']['exclusive']
         )
 
-        @logger.info(
-          "declare queue name=#{queue.name} \
-          durable=#{params.config['queue']['durable']} \
-          auto_delete=#{params.config['queue']['auto_delete']}"
-        )
+        @logger.log(Logger::Severity::INFO,
+                    "declare queue name=#{queue.name} " \
+                    "durable=#{params.config['queue']['durable']} " \
+                    "exclusive=#{params.config['queue']['exclusive']} " \
+                    "auto_delete=#{params.config['queue']['auto_delete']}",
+                    PROGNAME)
 
         params.config['routing_keys'].each do |routing_key|
           queue.bind(exchange, routing_key:)
-          @logger.info("bind exchange=#{exchange.name} queue=#{queue.name} routing_key=#{routing_key}")
+
+          @logger.log(
+            Logger::Severity::INFO,
+            "bind exchange=#{exchange.name} queue=#{queue.name} routing_key=#{routing_key}",
+            PROGNAME
+          )
         end
 
         consumer_thread = Thread.new do
-          message_queue = Queue.new
-
-          queue.subscribe(block: true) do |_delivery_info, properties, payload|
+          queue.subscribe(block: true) do |delivery_info, properties, payload|
             message = OpenStruct.new
             message.payload = payload
             message.correlation_id = properties[:correlation_id]
             message.reply_to = properties[:reply_to]
             message.freeze
 
-            message_queue << message
-          end
-
-          while @messages.count < params.config['messages']
-            message = message_queue.pop
-
-            log_msg = "get queue=#{queue.name}\n\
-                      correlation_id: #{message.correlation_id}\n\
-                      reply_to: #{message.reply_to}"
+            log_msg = "get queue=#{queue.name}" \
+                      "\ncorrelation_id: #{message.correlation_id}" \
+                      "\nreply_to: #{message.reply_to}"
 
             log_msg = "\n#{message.payload}" if params.config['log_payload']
 
-            @logger.info(log_msg)
+            @logger.log(Logger::Severity::INFO, log_msg, PROGNAME)
 
             @messages << message
+
+            delivery_info.consumer.cancel if @messages.count >= (params.config['messages'] || 1)
           end
         end
 
@@ -212,12 +216,12 @@ module Spectre
           reply_to: params.config['reply_to']
         )
 
-        log_msg = "publish exchange=#{params.config['exchange']['name']} \
-                   routing_key=#{routing_key}"
+        log_msg = "publish exchange=#{params.config['exchange']['name']} " \
+                  "routing_key=#{routing_key}"
 
         log_msg += "\n#{params.config['payload']}" if params.config['log_payload']
 
-        @logger.info(log_msg)
+        @logger.log(Logger::Severity::INFO, log_msg, PROGNAME)
       end
 
       def await!
@@ -229,10 +233,10 @@ module Spectre
       def connect
         return unless @conn.nil?
 
-        @logger.info(
-          "connect #{@config['username']}:*****@#{@config['host']}\
-          #{@config['virtual_host']} ssl=#{@config['ssl']}"
-        )
+        @logger.log(Logger::Severity::INFO,
+                    "connect #{@config['username']}:*****@#{@config['host']}/#{@config['virtual_host']} " \
+                    "ssl=#{@config['ssl']}",
+                    PROGNAME)
 
         @conn = Bunny.new(
           host: @config['host'],
@@ -254,11 +258,11 @@ module Spectre
           auto_delete: params.config['exchange']['auto_delete']
         )
 
-        @logger.info(
-          "declare exchange name=#{exchange.name} type=#{exchange.type} \
-          durable=#{params.config['exchange']['durable']} \
-          auto_delete=#{params.config['exchange']['auto_delete']}"
-        )
+        @logger.log(Logger::Severity::INFO,
+                    "declare exchange name=#{exchange.name} type=#{exchange.type} " \
+                    "durable=#{params.config['exchange']['durable']} " \
+                    "auto_delete=#{params.config['exchange']['auto_delete']}",
+                    PROGNAME)
 
         exchange
       end

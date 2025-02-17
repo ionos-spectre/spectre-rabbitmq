@@ -47,7 +47,7 @@ RSpec.describe 'spectre/rabbitmq' do
       .with(block: true)
 
     allow(channel).to receive(:queue)
-      .with('hello_queue', durable: false, auto_delete: false)
+      .with('hello_queue', durable: false, auto_delete: false, exclusive: false)
       .and_return(queue)
 
     allow(conn).to receive(:create_channel).and_return(channel)
