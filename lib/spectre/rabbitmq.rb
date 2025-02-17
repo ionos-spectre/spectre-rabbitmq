@@ -5,12 +5,15 @@ require 'bunny'
 module Spectre
   module RabbitMQ
     class ActionParamsBase
+      include Spectre::Delegate if defined? Spectre::Delegate
+
       attr_reader :config
 
       def initialize config, logger
         @logger = logger
         @config = Marshal.load(Marshal.dump(config))
         @config['routing_keys'] = []
+        @config['log_payload'] = true
       end
 
       def exchange name, type: 'topic', durable: false, auto_delete: false
@@ -32,6 +35,10 @@ module Spectre
 
       def routing_key name
         @config['routing_keys'] << name
+      end
+
+      def no_log!
+        @config['log_payload'] = false
       end
     end
 
@@ -82,6 +89,8 @@ module Spectre
     end
 
     class RabbitMQAction
+      include Spectre::Delegate if defined? Spectre::Delegate
+
       attr_reader :conn, :threads, :messages
 
       def initialize config, logger
@@ -163,10 +172,14 @@ module Spectre
 
           while @messages.count < params.config['messages']
             message = message_queue.pop
+
+            log_msg = "get queue=#{queue.name}\n\
+                      correlation_id: #{message.correlation_id}\n\
+                      reply_to: #{message.reply_to}"
+            
+            log_msg = "\n#{message.payload}" if params.config['log_payload']
+
             @logger.info(
-              "get queue=#{queue.name}\n\
-              correlation_id: #{message.correlation_id}\n\
-              reply_to: #{message.reply_to}\n#{message.payload}"
             )
             @messages << message
           end
@@ -199,10 +212,12 @@ module Spectre
           reply_to: params.config['reply_to']
         )
 
-        @logger.info(
-          "publish exchange=#{params.config['exchange']['name']} \
-          routing_key=#{routing_key} payload=\"#{params.config['payload']}\""
-        )
+        log_msg = "publish exchange=#{params.config['exchange']['name']} \
+                   routing_key=#{routing_key}"
+
+        log_msg += "\n#{params.config['payload']}" if params.config['log_payload']
+
+        @logger.info(log_msg)
       end
 
       def await!
@@ -249,23 +264,18 @@ module Spectre
       end
     end
 
-    class << self
-      @@config = defined?(Spectre::CONFIG) ? Spectre::CONFIG['rabbitmq'] || {} : {}
+    class Client
+      include Spectre::Delegate if defined? Spectre::Delegate
 
-      def logger
-        @@logger ||= defined?(Spectre.logger) ? Spectre.logger : Logger.new($stdout)
+      def initialize config, logger
+        @config = config['rabbitmq'] || {}
+        @logger = logger
       end
 
       def rabbitmq(name, &)
-        config = if @@config.key? name
-                   @@config[name]
-                 else
-                   {
-                     'host' => name,
-                   }
-                 end
+        config = @config[name] || {'host' => name }
 
-        action = RabbitMQAction.new(config, logger)
+        action = RabbitMQAction.new(config, @logger)
         action.instance_eval(&) if block_given?
 
         # Wait for all consumer threads to be finished
@@ -275,4 +285,6 @@ module Spectre
       end
     end
   end
+
+  Engine.register(RabbitMQ::Client, :rabbitmq) if defined? Engine
 end

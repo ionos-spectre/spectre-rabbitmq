@@ -1,15 +1,13 @@
-module Spectre
-  CONFIG = {
-    'rabbitmq' => {
-      'sample' => {
-        'host' => 'localhost',
-        'username' => 'developer',
-        'password' => 'dev',
-        'virtual_host' => '/',
-      },
+CONFIG = {
+  'rabbitmq' => {
+    'sample' => {
+      'host' => 'localhost',
+      'username' => 'developer',
+      'password' => 'dev',
+      'virtual_host' => '/',
     },
-  }
-end
+  },
+}
 
 require_relative '../lib/spectre/rabbitmq'
 
@@ -64,7 +62,9 @@ RSpec.describe 'spectre/rabbitmq' do
     reply = @reply_to
     received_messages = []
 
-    Spectre::RabbitMQ.rabbitmq 'sample' do
+    client = Spectre::RabbitMQ::Client.new(CONFIG, Logger.new(StringIO.new))
+    
+    client.rabbitmq 'sample' do
       # host 'localhost'
       username 'developer'
       password 'dev'

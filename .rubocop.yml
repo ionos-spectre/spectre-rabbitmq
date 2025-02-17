@@ -1,5 +1,7 @@
+require: rubocop-rake
+
 AllCops:
-  TargetRubyVersion: 3.1
+  TargetRubyVersion: 3.4
   DocumentationBaseURL: https://docs.rubocop.org/rubocop
   NewCops: enable
   SuggestExtensions: false
@@ -14,6 +16,9 @@ Style/FrozenStringLiteralComment:
   Enabled: false
 
 Style/AndOr:
+  Enabled: false
+
+Style/TrailingCommaInArrayLiteral:
   Enabled: false
 
 Style/TrailingCommaInHashLiteral:
@@ -38,6 +43,9 @@ Style/MutableConstant:
   Enabled: false
 
 Style/StringConcatenation:
+  Enabled: false
+
+Style/EvalWithLocation:
   Enabled: false
 
 Layout/SpaceInsideHashLiteralBraces:

@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.description   = 'Adds RabbitMQ functionality to the spectre framework'
   spec.homepage      = 'https://github.com/ionos-spectre/spectre-rabbitmq'
   spec.license       = 'GPL-3.0-or-later'
-  spec.required_ruby_version = '>= 3.1.0'
+  spec.required_ruby_version = '>= 3.4'
 
   spec.metadata['allowed_push_host'] = 'https://rubygems.org/'
 
@@ -20,5 +20,5 @@ Gem::Specification.new do |spec|
 
   spec.require_paths = ['lib']
 
-  spec.add_runtime_dependency 'bunny', '~> 2.22.0'
+  spec.add_runtime_dependency 'bunny'
 end
