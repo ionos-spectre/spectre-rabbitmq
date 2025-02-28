@@ -1,8 +1,17 @@
-require 'bunny'
+CONFIG = {
+  'rabbitmq' => {
+    'sample' => {
+      'host' => 'localhost',
+      'username' => 'developer',
+      'password' => 'dev',
+      'virtual_host' => '/',
+    },
+  },
+}
 
 require_relative '../lib/spectre/rabbitmq'
 
-RSpec.describe 'spectre/http' do
+RSpec.describe 'spectre/rabbitmq' do
   before do
     conn = double('Connection')
     channel = double('Channel')
@@ -32,7 +41,10 @@ RSpec.describe 'spectre/http' do
     allow(queue).to receive(:bind)
       .with(exchange, routing_key: 'sample_key_2')
 
-    allow(queue).to receive(:subscribe) { |&block| block.call(nil, { correlation_id: @correlation_id, reply_to: @reply_to }, 'some data') }
+    allow(queue).to receive(:subscribe) { |&block|
+                      block.call(nil, { correlation_id: @correlation_id, reply_to: @reply_to }, 'some data')
+                    }
+      .with(block: true)
 
     allow(channel).to receive(:queue)
       .with('hello_queue', durable: false, auto_delete: false, exclusive: false)
@@ -43,25 +55,16 @@ RSpec.describe 'spectre/http' do
     allow(Bunny).to receive(:new)
       .with(host: 'localhost', port: 1234, ssl: false, username: 'developer', password: 'dev', virtual_host: '/')
       .and_return(conn)
-
-    Spectre.configure({
-      'rabbitmq' => {
-        'sample' => {
-          'host' => 'localhost',
-          'port' => 1234,
-          'username' => 'developer',
-          'password' => 'dev',
-          'virtual_host' => '/',
-        },
-      },
-    })
   end
 
   it 'publish and consume a rabbitmq message' do
     corr_id = @correlation_id
     reply = @reply_to
+    received_messages = []
 
-    Spectre::RabbitMQ.rabbitmq 'sample' do
+    client = Spectre::RabbitMQ::Client.new(CONFIG, Logger.new(StringIO.new))
+
+    client.rabbitmq 'sample' do
       # host 'localhost'
       username 'developer'
       password 'dev'
@@ -86,9 +89,11 @@ RSpec.describe 'spectre/http' do
 
       await!
 
-      expect(messages.first.payload).to eq('some data')
-      expect(messages.first.correlation_id).to eq(corr_id)
-      expect(messages.first.reply_to).to eq(reply)
+      received_messages = messages
     end
+
+    expect(received_messages.first.payload).to eq('some data')
+    expect(received_messages.first.correlation_id).to eq(corr_id)
+    expect(received_messages.first.reply_to).to eq(reply)
   end
 end

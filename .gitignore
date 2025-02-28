@@ -1,6 +1,13 @@
 .vscode/
-**/*.log
+.ruby-lsp/
+.bundle/
+**/logs
+**/reports
 tmp/
 pkg/
 temp/
+vendor/
+doc/
+coverage/
+*.code-workspace
 Gemfile.lock

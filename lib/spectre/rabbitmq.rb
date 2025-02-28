@@ -1,18 +1,21 @@
-require 'spectre'
-require 'spectre/logging'
+require 'logger'
 require 'ostruct'
 require 'bunny'
 
-
 module Spectre
   module RabbitMQ
-    class ActionParamsBase < Spectre::DslClass
+    PROGNAME = 'spectre/rabbitmq'
+
+    class ActionParamsBase
+      include Spectre::Delegate if defined? Spectre::Delegate
+
       attr_reader :config
 
       def initialize config, logger
         @logger = logger
-        @config = config.deep_clone
+        @config = Marshal.load(Marshal.dump(config))
         @config['routing_keys'] = []
+        @config['log_payload'] = true
       end
 
       def exchange name, type: 'topic', durable: false, auto_delete: false
@@ -25,7 +28,7 @@ module Spectre
       end
 
       def topic name, durable: false, auto_delete: false
-        exchange(name, type: 'topic', durable: durable, auto_delete: auto_delete)
+        exchange(name, type: 'topic', durable:, auto_delete:)
       end
 
       def routing_keys *names
@@ -37,13 +40,13 @@ module Spectre
       end
 
       def no_log!
-        @config['no_log'] = true
+        @config['log_payload'] = false
       end
     end
 
     class ConsumeActionParams < ActionParamsBase
       def initialize config, logger
-        super config, logger
+        super
 
         @config['queue'] = {
           'name' => nil,
@@ -54,7 +57,7 @@ module Spectre
         @config['messages'] = 1
       end
 
-      def queue name, durable: false, auto_delete: false, exclusive: false
+      def queue name = '', exclusive: false, durable: false, auto_delete: false
         @config['queue'] = {
           'name' => name,
           'durable' => durable,
@@ -85,11 +88,13 @@ module Spectre
         @config['reply_to'] = receiver
       end
 
-      alias :body :payload
+      alias body payload
     end
 
-    class RabbitMQAction < Spectre::DslClass
-      attr_reader :conn, :action, :threads, :messages
+    class RabbitMQAction
+      include Spectre::Delegate if defined? Spectre::Delegate
+
+      attr_reader :conn, :threads, :messages
 
       def initialize config, logger
         @logger = logger
@@ -133,11 +138,11 @@ module Spectre
         @config['virtual_host'] = vhost
       end
 
-      def consume &block
+      def consume(&)
         params = ConsumeActionParams.new(@config, @logger)
-        params.instance_eval(&block)
+        params.instance_eval(&)
 
-        connect()
+        connect
 
         channel = @conn.create_channel
 
@@ -147,40 +152,45 @@ module Spectre
           params.config['queue']['name'],
           durable: params.config['queue']['durable'],
           auto_delete: params.config['queue']['auto_delete'],
-          exclusive: params.config['queue']['exclusive'],
+          exclusive: params.config['queue']['exclusive']
         )
 
-        @logger.info("declare queue name=#{queue.name} durable=#{params.config['queue']['durable']} auto_delete=#{params.config['queue']['auto_delete']} exclusive=#{params.config['queue']['exclusive']}")
+        @logger.log(Logger::Severity::INFO,
+                    "declare queue name=#{queue.name} " \
+                    "durable=#{params.config['queue']['durable']} " \
+                    "exclusive=#{params.config['queue']['exclusive']} " \
+                    "auto_delete=#{params.config['queue']['auto_delete']}",
+                    PROGNAME)
 
         params.config['routing_keys'].each do |routing_key|
-          queue.bind(exchange, routing_key: routing_key)
-          @logger.info("bind exchange=#{exchange.name} queue=#{queue.name} routing_key=#{routing_key}")
+          queue.bind(exchange, routing_key:)
+
+          @logger.log(
+            Logger::Severity::INFO,
+            "bind exchange=#{exchange.name} queue=#{queue.name} routing_key=#{routing_key}",
+            PROGNAME
+          )
         end
 
         consumer_thread = Thread.new do
-          message_queue = Queue.new
-
-          queue.subscribe do |_delivery_info, properties, payload|
+          queue.subscribe(block: true) do |delivery_info, properties, payload|
             message = OpenStruct.new
             message.payload = payload
             message.correlation_id = properties[:correlation_id]
             message.reply_to = properties[:reply_to]
             message.freeze
 
-            message_queue << message
-          end
+            log_msg = "get queue=#{queue.name}" \
+                      "\ncorrelation_id: #{message.correlation_id}" \
+                      "\nreply_to: #{message.reply_to}"
 
-          while @messages.count < params.config['messages']
-            message = message_queue.pop
+            log_msg = "\n#{message.payload}" if params.config['log_payload']
 
-            payload_message = message.payload
+            @logger.log(Logger::Severity::INFO, log_msg, PROGNAME)
 
-            if params.config['no_log'] == true
-              payload_message = '[...]'
-            end
-
-            @logger.info("get queue=#{queue.name}\ncorrelation_id: #{message.correlation_id}\nreply_to: #{message.reply_to}\n#{payload_message}")
             @messages << message
+
+            delivery_info.consumer.cancel if @messages.count >= (params.config['messages'] || 1)
           end
         end
 
@@ -192,36 +202,35 @@ module Spectre
         end
       end
 
-      def publish &block
+      def publish(&)
         params = PublishActionParams.new(@config, @logger)
-        params.instance_eval(&block)
+        params.instance_eval(&)
 
-        connect()
+        connect
 
         channel = @conn.create_channel
 
         exchange = declare_exchange(channel, params)
 
-        routing_key = params.config['routing_keys'].nil? ? nil : params.config['routing_keys'].first
+        routing_key = params.config['routing_keys']&.first
 
         exchange.publish(
           params.config['payload'],
-          routing_key: routing_key,
+          routing_key:,
           correlation_id: params.config['correlation_id'],
           reply_to: params.config['reply_to']
         )
 
-        payload_message = params.config['payload']
+        log_msg = "publish exchange=#{params.config['exchange']['name']} " \
+                  "routing_key=#{routing_key}"
 
-        if params.config['no_log'] == true
-          payload_message = '[...]'
-        end
+        log_msg += "\n#{params.config['payload']}" if params.config['log_payload']
 
-        @logger.info("publish exchange=#{params.config['exchange']['name']} routing_key=#{routing_key} payload=\"#{payload_message}\"")
+        @logger.log(Logger::Severity::INFO, log_msg, PROGNAME)
       end
 
       def await!
-        @threads.each { |x| x.join }
+        @threads.each(&:join)
       end
 
       private
@@ -229,10 +238,10 @@ module Spectre
       def connect
         return unless @conn.nil?
 
-        vhost = @config['virtual_host']
-        vhost = '/' + vhost unless vhost.start_with? '/'
-
-        @logger.info("connect #{@config['username']}:*****@#{@config['host']}#{vhost} ssl=#{@config['ssl']}")
+        @logger.log(Logger::Severity::INFO,
+                    "connect #{@config['username']}:*****@#{@config['host']}/#{@config['virtual_host']} " \
+                    "ssl=#{@config['ssl']}",
+                    PROGNAME)
 
         @conn = Bunny.new(
           host: @config['host'],
@@ -252,47 +261,40 @@ module Spectre
           params.config['exchange']['type'].to_s,
           params.config['exchange']['name'],
           durable: params.config['exchange']['durable'],
-          auto_delete: params.config['exchange']['auto_delete'],
+          auto_delete: params.config['exchange']['auto_delete']
         )
 
-        @logger.info("declare exchange name=#{exchange.name} type=#{exchange.type} durable=#{params.config['exchange']['durable']} auto_delete=#{params.config['exchange']['auto_delete']}")
+        @logger.log(Logger::Severity::INFO,
+                    "declare exchange name=#{exchange.name} type=#{exchange.type} " \
+                    "durable=#{params.config['exchange']['durable']} " \
+                    "auto_delete=#{params.config['exchange']['auto_delete']}",
+                    PROGNAME)
 
         exchange
       end
     end
 
-    class << self
-      @@config = {}
+    class Client
+      include Spectre::Delegate if defined? Spectre::Delegate
 
-      def rabbitmq name, &block
-        if @@config.key? name
-          config = @@config[name]
-        else
-          config = {
-            'host' => name,
-          }
-        end
+      def initialize config, logger
+        @config = config['rabbitmq'] || {}
+        @logger = logger
+      end
 
-        action = RabbitMQAction.new(config, @@logger)
-        action._evaluate(&block) if block_given?
+      def rabbitmq(name, &)
+        config = @config[name] || {'host' => name }
+
+        action = RabbitMQAction.new(config, @logger)
+        action.instance_eval(&) if block_given?
 
         # Wait for all consumer threads to be finished
-        action.threads.each { |x| x.join }
+        action.threads.each(&:join)
 
         action.conn.close
       end
     end
-
-    Spectre.register do |config|
-      @@logger = Spectre::Logging::ModuleLogger.new(config, 'spectre/rabbitmq')
-
-      if config.key? 'rabbitmq'
-        config['rabbitmq'].each do |name, cfg|
-          @@config[name] = cfg
-        end
-      end
-    end
-
-    Spectre.delegate :rabbitmq, to: self
   end
+
+  Engine.register(RabbitMQ::Client, :rabbitmq) if defined? Engine
 end
