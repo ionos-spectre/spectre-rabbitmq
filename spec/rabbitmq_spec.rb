@@ -53,7 +53,7 @@ RSpec.describe 'spectre/rabbitmq' do
     allow(conn).to receive(:create_channel).and_return(channel)
 
     allow(Bunny).to receive(:new)
-      .with(host: 'localhost', port: 1234, ssl: false, username: 'developer', password: 'dev', virtual_host: '/')
+      .with(host: 'localhost', port: 5672, ssl: false, username: 'developer', password: 'dev', virtual_host: '/')
       .and_return(conn)
   end
 
